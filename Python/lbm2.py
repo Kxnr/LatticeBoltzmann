@@ -1,4 +1,5 @@
 #!/usr/bin/python
+##########
 # Copyright (C) 2013 FlowKit Ltd, Lausanne, Switzerland
 # E-mail contact: contact@flowkit.com
 #
@@ -9,9 +10,10 @@
 #
 # 2D flow around a cylinder
 #
+# Modified by Connor Keane to support arbitrary flow
+##########
 
-from numpy import *
-from numpy.linalg import *
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
@@ -28,65 +30,62 @@ u0 = .1  # m/s
 t0 = l0 / u0 # s
 v = .0005 # kinematic viscosity in m**2 / s
 
-# lattice steps
-dx = 1.0 / max(WIDTH, HEIGHT)
-dt = dx**2
-steps = 1.0 / dt # simulation steps in 1 characteristic time
 
-Re = u0 * l0 / v  # Reynolds number.
-q = 9  # Lattice dimensions and populations.
+dx = 1.0 / max(WIDTH, HEIGHT)  # lattice steps
+dt = dx**2                     # time step
+steps = 1.0 / dt               # simulation steps in 1 characteristic time
+Re = u0 * l0 / v               # Reynolds number.
+q = 9                          # Lattice dimensions and populations.
 vlb = dt / (Re * dx**2)
-uLB = dt / dx                      # Velocity in lattice units.
-omega = 1.0 / (vlb / 3. + .5)  # Relaxation parameter.
+uLB = dt / dx                  # Velocity in lattice units.
+omega = 1.0 / (vlb / 3 + .5)  # Relaxation parameter.
 
 ###### Lattice Constants #######################################################
-c = array([(x, y) for x in [0, -1, 1] for y in [0, -1, 1]]) # lattice velocities
-t = 1./36. * ones(q)                                   # Lattice weights.
-t[asarray([norm(ci) < 1.1 for ci in c])] = 1./9.
-t[0] = 4./9.
+c = np.array([(x, y) for x in [0, -1, 1] for y in [0, -1, 1]]) # lattice velocities
+t = 1/36 * np.ones(q)                                   # Lattice weights.
+t[np.asarray([np.linalg.norm(ci) < 1.1 for ci in c])] = 1 / 9
+t[0] = 4 / 9
 noslip = [c.tolist().index((-c[i]).tolist()) for i in range(q)]
-i1 = arange(q)[asarray([ci[0] < 0 for ci in c])]  # Unknown on right wall.
-i2 = arange(q)[asarray([ci[0] == 0 for ci in c])]  # Vertical middle.
-i3 = arange(q)[asarray([ci[0] > 0 for ci in c])]  # Unknown on left wall.
+i1 = np.arange(q)[np.asarray([ci[0] < 0 for ci in c])]  # Unknown on right wall.
+i2 = np.arange(q)[np.asarray([ci[0] == 0 for ci in c])]  # Vertical middle.
+i3 = np.arange(q)[np.asarray([ci[0] > 0 for ci in c])]  # Unknown on left wall.
 
 ###### Function Definitions ####################################################
-print(Re)
-print(omega)
 
 def curl(image):
     # naiive method is super slow!
     # maybe try to optimize with convolution
-    vorticity = zeros((WIDTH, HEIGHT))
+    vorticity = np.zeros((WIDTH, HEIGHT))
     for x in range(WIDTH):
         for y in range(HEIGHT):
             vorticity[x, y] = (image[1, (x+1) % WIDTH, y] -
                                image[1, (x-1) % WIDTH, y]) - \
-                (image[0, x, (y+1) % HEIGHT] -
-                 image[0, x, (y-1) % HEIGHT])
+                              (image[0, x, (y+1) % HEIGHT] -
+                               image[0, x, (y-1) % HEIGHT])
 
     return vorticity
 
 
 def gauss(x, u, s):
-    return exp(-((x-u)**2)/s)
+    return np.exp(-((x-u)**2)/s)
 
 
-def sumpop(fin): return sum(fin, axis=0)
+def sumpop(fin): return np.sum(fin, axis=0)
 
 
 def equilibrium(rho, u):              # Equilibrium distribution function.
-    cu = 3.0 * dot(c, u.transpose(1, 0, 2))
-    usqr = 3./2.*(u[0]**2+u[1]**2)
-    feq = zeros((q, WIDTH, HEIGHT))
+    cu = 3.0 * np.dot(c, u.transpose(1, 0, 2))
+    usqr = 3/2*(u[0]**2+u[1]**2)
+    feq = np.zeros((q, WIDTH, HEIGHT))
     for i in range(q):
         feq[i, :, :] = rho*t[i]*(1.+cu[i]+0.5*cu[i]**2-usqr)
     return feq
 
 
-vel = zeros((2, WIDTH, HEIGHT))
-vel = random.uniform(-1, 1, size=(2, WIDTH, HEIGHT))*uLB
+vel = np.zeros((2, WIDTH, HEIGHT))
+vel = np.random.uniform(-1, 1, size=(2, WIDTH, HEIGHT))*uLB
 
-rho = ones((WIDTH, HEIGHT))
+rho = np.ones((WIDTH, HEIGHT))
 #rho += fromfunction(lambda x, y: gauss(x, WIDTH/2, 10)
                   # * gauss(y, HEIGHT/2, 10), (WIDTH, HEIGHT))
 #rho /= amax(rho) * 2
@@ -114,11 +113,10 @@ for time in range(int(steps * MAX_TIMES)):
         plt.savefig("curl."+str(time/SAVE_INTERVAL).zfill(4)+".png")
 
     for i in range(q):  # Streaming step.
-        fin[i, :, :] = roll(
-            roll(fout[i, :, :], c[i, 0], axis=0), c[i, 1], axis=1)
+        fin[i, :, :] = np.roll(np.roll(fout[i, :, :], c[i, 0], axis=0), c[i, 1], axis=1)
 
     rho = sumpop(fin)
-    u = dot(c.transpose(), fin.transpose((1, 0, 2)))/rho
+    u = np.dot(c.transpose(), fin.transpose((1, 0, 2)))/rho
     feq = equilibrium(rho, u)
 
     fout = fin - omega * (fin - feq)  # Collision step.
