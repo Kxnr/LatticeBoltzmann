@@ -1,5 +1,22 @@
 #include "lbm.h"
 
+LatticeSimulator LatticeSimulator step() {
+    return this.stream().bounceback().equilibrate()
+}
+
+D2Q9LatticeSimulator LatticeSimulator equilibrate() {
+    // calculate equilibrium distribution
+
+    Lattice density =
+
+    // sum over (distribution * velocity) / density
+
+    eq_lattice = // TODO
+
+    // run collide step with relaxation towards equilibrium
+    return this.copy().set_lattice(this.lattice - this.omega * (this.lattice - eq_lattice));
+}
+
 void equilibrium(arma::mat rho, arma::cube u, arma::cube &feq)
 {
     arma::cube cv(WIDTH, HEIGHT, Q);
